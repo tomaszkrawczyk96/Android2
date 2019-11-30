@@ -44,9 +44,17 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.gson.Gson;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
         GoogleMap.OnMapLoadedCallback,
@@ -76,6 +84,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private ConstraintLayout mainContainer;
     SensorEventListener g;
     boolean SensorStart = false;
+    List<List<Double>> PosList;
+    final String MARKERS_JSON_FILE = "markers.json";
+    final String LAT_POS = "lat_";
+    final String LNG_POS = "lng_";
+
 
 
 
@@ -100,6 +113,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 */
         markerList = new ArrayList<>();
+        PosList = new ArrayList<>();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         SensorValues = findViewById(R.id.textView);
@@ -169,6 +183,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                 .alpha(0.8f)
                 .title(String.format("Position:(%.2f, %.2f)",latLng.latitude,latLng.longitude)));
+        List<Double> LatLngList = new ArrayList<Double>();
+        LatLngList.add(latLng.latitude);
+        LatLngList.add(latLng.longitude);
+        PosList.add(LatLngList);
         markerList.add(marker);
 
     }
@@ -324,4 +342,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
+
+
+    private void saveMarkersToJson() {
+        Gson gson = new Gson();
+        String listJson = gson.toJson(PosList);
+        FileOutputStream outputStream;
+        try {
+            outputStream = openFileOutput(MARKERS_JSON_FILE,MODE_PRIVATE);
+            FileWriter writer = new FileWriter(outputStream.getFD());
+            writer.write(listJson);
+            writer.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    
+
 }
