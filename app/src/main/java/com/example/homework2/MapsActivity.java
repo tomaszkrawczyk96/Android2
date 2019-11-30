@@ -64,8 +64,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     List<Marker> markerList;
     FloatingActionButton fab1;
     FloatingActionButton fab2;
-    static public SensorManager mSensorManager;
-    private Sensor mSensor;
+    SensorManager mSensorManager;
+    Sensor mSensor;
     private long lastUpdate = -1;
     private TextView SensorValues;
     private Path upPath;
@@ -74,6 +74,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int screenHeight;
     private int imgEdgeSize;
     private ConstraintLayout mainContainer;
+    SensorEventListener g;
+    boolean SensorStart = false;
 
 
 
@@ -100,6 +102,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         markerList = new ArrayList<>();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        SensorValues = findViewById(R.id.textView);
+        SensorValues.setVisibility(View.INVISIBLE);
 
         fab1 = findViewById(R.id.floatingActionButton1);
         fab2 = findViewById(R.id.floatingActionButton2);
@@ -109,12 +113,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         fab2.animate().translationY(fab2.getHeight() + 200f).setInterpolator(new LinearInterpolator()).start();
 
 
-        SensorValues = findViewById(R.id.textView);
+
         if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
             mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         } else {
             Toast.makeText(this,"No accelerometer",Toast.LENGTH_SHORT).show();
         }
+      //  mSensorManager.registerListener(this ,mSensor,100000);
+        g= this;
+
+
     }
 
 
@@ -176,9 +184,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         fab1.animate().translationY(0f).setInterpolator(new LinearInterpolator()).setDuration(500).start();
         fab2.animate().translationY(0f).setInterpolator(new LinearInterpolator()).setDuration(500).start();
 
+      //  SensorStart = false;
+
         fab1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                SensorStart = !SensorStart;
+
+                if (SensorStart == true) {
+                    mSensorManager.registerListener(g, mSensor, 100000);
+                    SensorValues.setVisibility(View.VISIBLE);
+                }
+                else {
+                    mSensorManager.unregisterListener(g, mSensor);
+                    SensorValues.setVisibility(View.INVISIBLE);
+                }
 
             }
         });
@@ -289,7 +309,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append()
+        stringBuilder.append("Acceleration:\n");
+        stringBuilder.append(String.format("x: %.4f ",event.values[0]));
+        stringBuilder.append(String.format("y: %.4f ",event.values[1]));
+        stringBuilder.append(String.format("z: %.4f ",event.values[2]));
+
+
+        SensorValues.setText(stringBuilder.toString());
+
 
     }
 
