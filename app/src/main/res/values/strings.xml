@@ -2,5 +2,4 @@
     <string name="app_name">Homework2</string>
     <string name="title_activity_maps">Map</string>
     <string name="last_known_loc_msg">Last known location</string>
-    <string name="myFileprovider">com.example.homework2.fileprovider</string>
 </resources>

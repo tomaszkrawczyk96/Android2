@@ -45,12 +45,16 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,18 +80,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     Sensor mSensor;
     private long lastUpdate = -1;
     private TextView SensorValues;
-    private Path upPath;
-    private Path downPath;
-    private int screenWidth;
-    private int screenHeight;
-    private int imgEdgeSize;
-    private ConstraintLayout mainContainer;
     SensorEventListener g;
     boolean SensorStart = false;
-    List<List<Double>> PosList;
+    List<Double> LatLngList;
     final String MARKERS_JSON_FILE = "markers.json";
-    final String LAT_POS = "lat_";
-    final String LNG_POS = "lng_";
+
 
 
 
@@ -103,17 +100,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        /*
-        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.floatingActionButton1);
-        fab1.setOnClickListener(new View.OnClickListener() {
-           @Override
-            public void onClick(View v) {
 
-            }
-        });
-*/
         markerList = new ArrayList<>();
-        PosList = new ArrayList<>();
+        LatLngList = new ArrayList<>();
 
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         SensorValues = findViewById(R.id.textView);
@@ -121,7 +110,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         fab1 = findViewById(R.id.floatingActionButton1);
         fab2 = findViewById(R.id.floatingActionButton2);
-        mainContainer = findViewById(R.id.mainView);
+
 
         fab1.animate().translationY(fab1.getHeight() + 200f).setInterpolator(new LinearInterpolator()).start();
         fab2.animate().translationY(fab2.getHeight() + 200f).setInterpolator(new LinearInterpolator()).start();
@@ -133,8 +122,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             Toast.makeText(this,"No accelerometer",Toast.LENGTH_SHORT).show();
         }
-      //  mSensorManager.registerListener(this ,mSensor,100000);
-        g= this;
+
+        g = this;
+
+        LatLngList.clear();
+        markerList.clear();
+        restoreFromJson();
 
 
     }
@@ -155,38 +148,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapLoadedCallback(this);
         mMap.setOnMarkerClickListener(this);
         mMap.setOnMapLongClickListener(this);
+        loadMarkers();
+        LatLng latLng = new LatLng(52.4,16.9);
+        CameraPosition cameraPos = new CameraPosition(latLng,5,0,0);
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPos));
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(mMap.getMinZoomLevel()));
     }
 
 
     @Override
     public void onMapLongClick(LatLng latLng) {
 
-        /*
-        float distance = 0f;
-        if (markerList.size()>0){
-            Marker lastMarker = markerList.get(markerList.size() -1);
-            float [] tmpDis = new float[3];
-            Location.distanceBetween(lastMarker.getPosition().latitude,lastMarker.getPosition().longitude,
-                    latLng.latitude,latLng.longitude,tmpDis);
-            distance = tmpDis[0];
-
-            PolylineOptions rectOptions = new PolylineOptions()
-                    .add(lastMarker.getPosition())
-                    .add(latLng)
-                    .width(10)
-                    .color(Color.BLUE);
-            mMap.addPolyline(rectOptions);
-        }
-        */
         Marker marker = mMap.addMarker(new MarkerOptions()
                 .position(new LatLng(latLng.latitude,latLng.longitude))
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                 .alpha(0.8f)
                 .title(String.format("Position:(%.2f, %.2f)",latLng.latitude,latLng.longitude)));
-        List<Double> LatLngList = new ArrayList<Double>();
+
         LatLngList.add(latLng.latitude);
         LatLngList.add(latLng.longitude);
-        PosList.add(LatLngList);
         markerList.add(marker);
 
     }
@@ -197,12 +177,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if(cameraPos.zoom  < 14f)
             mMap.moveCamera(CameraUpdateFactory.zoomTo(14f));
 
-       // fab1.show();
-      //  fab2.show();
         fab1.animate().translationY(0f).setInterpolator(new LinearInterpolator()).setDuration(500).start();
         fab2.animate().translationY(0f).setInterpolator(new LinearInterpolator()).setDuration(500).start();
 
-      //  SensorStart = false;
 
         fab1.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -276,16 +253,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         Task<Location> lastLocation = fusedLocationClient.getLastLocation();
 
-      //  lastLocation.addOnSuccessListener(this, new OnSuccessListener<Location>() {
-      //      @Override
-      //      public void onSuccess(Location location) {
-      //          if (location != null && mMap != null) {
-      //              mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(), location.getLongitude()))
-      //                      .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-      //                      .title(getString(R.string.last_known_loc_msg)));
-      //          }
-      //      }
-      //  });
 
         createLocationRequest();
         createLocationCallback();
@@ -346,7 +313,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void saveMarkersToJson() {
         Gson gson = new Gson();
-        String listJson = gson.toJson(PosList);
+        String listJson = gson.toJson(LatLngList);
         FileOutputStream outputStream;
         try {
             outputStream = openFileOutput(MARKERS_JSON_FILE,MODE_PRIVATE);
@@ -360,6 +327,65 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    
+    private void restoreFromJson() {
+        FileInputStream inputStream;
+        int DEFAULT_BUFFER_SIZE = 10000;
+        Gson gson=  new Gson();
+        String readJson;
+        try {
+            inputStream = openFileInput(MARKERS_JSON_FILE);
+            FileReader reader = new FileReader(inputStream.getFD());
+            char[] buf = new char[DEFAULT_BUFFER_SIZE];
+            int n;
+            StringBuilder builder = new StringBuilder();
+            while ((n = reader.read(buf)) > 0){
+                String tmp= String.valueOf(buf);
+                String substring = (n<DEFAULT_BUFFER_SIZE) ? tmp.substring(0,n) : tmp;
+                builder.append(substring);
 
+            }
+            reader.close();
+            readJson = builder.toString();
+            Type collectionType = new TypeToken<List<Double>>() {}.getType();
+            List<Double> o = gson.fromJson(readJson,collectionType);
+            if (o != null){
+                LatLngList.clear();
+                for(Double d : o) {
+                    LatLngList.add(d);
+                }
+            }
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        markerList.clear();
+    }
+
+    @Override
+    protected void onDestroy() {
+        saveMarkersToJson();
+        super.onDestroy();
+    }
+
+
+    private void loadMarkers () {
+        if(LatLngList.size() != 0)
+            for (int i = 0;i <LatLngList.size();i+=2){
+                Marker marker = mMap.addMarker(new MarkerOptions()
+                        .position(new LatLng(LatLngList.get(i),LatLngList.get(i+1)))
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                        .alpha(0.8f)
+                        .title(String.format("Position:(%.2f, %.2f)",LatLngList.get(i),LatLngList.get(i+1))));
+            }
+
+    }
+
+
+    public void clearMemory(View view) {
+        LatLngList.clear();
+        markerList.clear();
+        mMap.clear();
+    }
 }
